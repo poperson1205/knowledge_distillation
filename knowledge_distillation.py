@@ -18,7 +18,7 @@ class Teacher(nn.Module):
     def forward(self, x):
         x = F.relu(self.layer1(x))
         x = F.relu(self.layer2(x))
-        return F.relu(self.layer3(x))
+        return self.layer3(x)
 
 class Student(nn.Module):
     def __init__(self):
@@ -31,7 +31,7 @@ class Student(nn.Module):
     def forward(self, x):
         x = F.relu(self.layer1(x))
         x = F.relu(self.layer2(x))
-        return F.relu(self.layer3(x))
+        return self.layer3(x)
 
 teacher_model = Teacher()
 student_model = Student()
