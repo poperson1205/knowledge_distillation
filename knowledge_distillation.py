@@ -51,7 +51,7 @@ train_data = torchvision.datasets.MNIST(MNIST_DIR, train=True, download=True,
                                             ]))
 train_loader = torch.utils.data.DataLoader(train_data, batch_size=4, shuffle=True)
 
-for epoch_count in range(5):
+for epoch_count in range(3):
     print('epoch: {}'.format(epoch_count))
 
     ## Optimize parameters
@@ -92,10 +92,14 @@ test_data = torchvision.datasets.MNIST(MNIST_DIR, train=False, download=True,
                                             ]))
 test_loader = torch.utils.data.DataLoader(test_data, batch_size=1, shuffle=True)
 error_count = 0
+total_loss = 0.0
 total_count = 0
 for step_count, (x, y_gt) in enumerate(test_loader):
     x = torch.flatten(x, start_dim=1, end_dim=-1)
     y_pred = teacher_model(x)
+
+    # Compute loss
+    total_loss += criterion(y_pred, y_gt).item()
     
     # Check error
     y_pred_argmax = torch.argmax(y_pred)
@@ -106,4 +110,5 @@ for step_count, (x, y_gt) in enumerate(test_loader):
     if step_count % 1000 == 0:
         print('progress: {}\t/ {}'.format(step_count, len(test_loader)))
 
+print('Test loss: {}'.format(total_loss / float(total_count)))
 print('Test error: {} / {}'.format(error_count, total_count))
