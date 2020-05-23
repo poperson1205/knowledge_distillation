@@ -25,6 +25,13 @@ train_data = torchvision.datasets.MNIST(MNIST_DIR, train=True, download=True,
                                             ]))
 train_loader = torch.utils.data.DataLoader(train_data, batch_size=4, shuffle=True)
 
+# Create gpu device
+device = torch.device('cuda')
+print(device)
+
+# Transfer
+teacher_model.to(device)
+
 for epoch_count in range(5):
     print('epoch: {}'.format(epoch_count))
 
@@ -33,6 +40,10 @@ for epoch_count in range(5):
     for step_count, (x, y_gt) in enumerate(train_loader):
         # Initialize gradients with 0
         optimizer.zero_grad()
+
+        # Transfer device
+        x = x.to(device)
+        y_gt = y_gt.to(device)
 
         # Predict
         x = torch.flatten(x, start_dim=1, end_dim=-1)
