@@ -81,7 +81,7 @@ for epoch_count in range(5):
 
 
 # Save model
-torch.save(teacher_model.state_dict(), 'teacher.pth')
+torch.save(teacher_model.state_dict(), './data/teacher.pth')
 
 
 # Test
@@ -103,7 +103,7 @@ for step_count, (x, y_gt) in enumerate(test_loader):
         error_count += 1
 
     total_count += 1
-    if step_count % 1000 = 0:
+    if step_count % 1000 == 0:
         print('progress: {}\t/ {}'.format(step_count, len(test_loader)))
 
 print('Test error: {} / {}'.format(error_count, total_count))
