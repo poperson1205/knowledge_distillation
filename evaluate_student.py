@@ -8,6 +8,7 @@ student_model = Student()
 
 # Load state_dict
 student_model.load_state_dict(torch.load('./data/student.pth'))
+student_model.eval()
 
 test_data = torchvision.datasets.MNIST('../mnist', train=False, transform=torchvision.transforms.Compose([torchvision.transforms.ToTensor(), torchvision.transforms.Normalize((0.1307,), (0.3081,))]))
 test_loader = torch.utils.data.DataLoader(test_data, batch_size=1, shuffle=False)
