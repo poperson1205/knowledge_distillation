@@ -1,44 +1,84 @@
-import argparse
-
-import torch
+import matplotlib.pyplot as plt
+import numpy as np
+import models
+import torch.utils.data
 import torchvision
+import os
 
-from models import Teacher
-from models import Student
+BASE_DIR = './data'
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('type', help='Type of network, which should be either "Teacher" or "Student"')
-    parser.add_argument('path', help='File path for the target network')
-    args = parser.parse_args()
+def evaluate(model_type='teacher', prefix='teacher'):
+    if model_type == 'teacher':
+        model = models.Teacher()
+    elif model_type == 'student':
+        model = models.Student()
+       
+    model_paths = []
+    for epoch_count in range(0, 3000, 100):
+        model_paths.append(os.path.join(BASE_DIR, '{}-{}.pth'.format(prefix, epoch_count)))
+    model_paths.append(os.path.join(BASE_DIR, '{}.pth'.format(prefix)))
+    
+    # Get test data
+    dataset = torchvision.datasets.MNIST('../mnist', train=False, download=True,
+                                                    transform=torchvision.transforms.Compose([
+                                                        torchvision.transforms.ToTensor(), 
+                                                        torchvision.transforms.Normalize((0.1307,), (0.3081,))
+                                                        ]))
 
-    # Create model
-    model = None
-    if args.type == 'Teacher':
-        model = Teacher()
-    elif args.type == 'Student':
-        model = Student()
+    # Create data loader
+    batch_size = 10000
+    data_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
-    # Load state_dict
-    model.load_state_dict(torch.load(args.path))
-    model.eval()
+    error_counts = np.zeros(shape=len(model_paths), dtype=np.int32)
+    for model_count, model_path in enumerate(model_paths):
+        model.load_state_dict(torch.load(model_path))
+        model.eval()
+        model = model.cuda()
 
-    test_data = torchvision.datasets.MNIST('../mnist', train=False, transform=torchvision.transforms.Compose([torchvision.transforms.ToTensor(), torchvision.transforms.Normalize((0.1307,), (0.3081,))]))
-    test_loader = torch.utils.data.DataLoader(test_data, batch_size=1, shuffle=False)
+        error_count = 0
+        for x, y_gt in data_loader:
+            # Preprocess input
+            x = x.flatten(start_dim=1, end_dim=-1)
+            x = x.cuda()
+            y_gt = y_gt.cuda()
 
-    error_count = 0
-    total_count = 0
-    for step_index, (x, y_gt) in enumerate(test_loader):
-        x = torch.flatten(x, start_dim=1, end_dim=-1)
-        y_pred = model(x)
+            # Predict label
+            y_pred = model(x)
+            with torch.no_grad():
+                y_pred = torch.argmax(y_pred, dim=1)
+                error_count += batch_size - torch.eq(y_pred, y_gt).sum()
         
-        y_pred_argmax = torch.argmax(y_pred).item()
-        if y_pred_argmax != y_gt:
-            error_count += 1
-        
-        total_count += 1
+        error_counts[model_count] = error_count
+        print('{}-{}: {}'.format(prefix, model_count, error_count))
 
-        if step_index % 1000 == 0:
-            print('progress: {}\t/ {}'.format(step_index, len(test_loader)))
+    return error_counts
 
-    print('error: {}\t/ {}\t-->\t{}(%)'.format(error_count, total_count, float(error_count)/float(total_count)*100.0))
+# Evaluate accuracy
+error_counts_teacher = evaluate('teacher', 'teacher')
+error_counts_student = evaluate('student', 'student')
+error_counts_student_distill = evaluate('student', 'student-distill')
+
+# Store as file
+np.save('./data/error_counts_teacher.npy', error_counts_teacher)
+np.save('./data/error_counts_student.npy', error_counts_student)
+np.save('./data/error_counts_student_distill.npy', error_counts_student_distill)
+
+# # Load from file
+# error_counts_teacher = np.load('./data/error_counts_teacher.npy')
+# error_counts_student = np.load('./data/error_counts_student.npy')
+# error_counts_student_distill = np.load('./data/error_counts_student_distill.npy')
+
+# Prepare to plot
+fig, ax = plt.subplots()
+
+# Plot error
+ax.plot(range(0, 3001, 100), error_counts_teacher, label='teacher')
+ax.plot(range(0, 3001, 100), error_counts_student, label='student')
+ax.plot(range(0, 3001, 100), error_counts_student_distill, label='student with distillation')
+ax.set_xlabel('number of epochs')
+ax.set_ylabel('number of errors')
+ax.set_title('Learning curve')
+ax.legend()
+
+# Show
+plt.show()
