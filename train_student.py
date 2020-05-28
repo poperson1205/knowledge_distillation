@@ -1,38 +1,54 @@
+import time
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torchvision
+import scheduler
 
 from models import Student
 
 MNIST_DIR = '../mnist/'
 
+# Create gpu device
+device = torch.device('cuda')
+print(device)
 
-# Train student
-## Create model
+# Create model
 student_model = Student()
 
-## Define Loss
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(student_model.parameters(), lr=0.001, momentum=0.9)
+# Transfer
+student_model.to(device)
 
-## Load dataset
+# Define Loss
+criterion = nn.CrossEntropyLoss(reduction='mean')
+
+# Define optimizer
+optimizer = optim.SGD(student_model.parameters(), lr=0.1)
+
+# Define schedule for learning rate and momentum
+lr_init = 0.1
+gamma = 0.998
+lrs = np.zeros(shape=(3000,))
+lr = lr_init
+for step in range(3000):
+    lrs[step] = lr
+    lr *= gamma
+momentums = np.concatenate([np.linspace(0.5, 0.99, 500), np.full(shape=(2500,), fill_value=0.99)])
+list_lr_momentum_scheduler = scheduler.ListScheduler(optimizer, lrs=lrs, momentums=momentums)
+
+# Load dataset
 train_data = torchvision.datasets.MNIST(MNIST_DIR, train=True, download=True,
                                         transform=torchvision.transforms.Compose([
                                             torchvision.transforms.ToTensor(), # image to Tensor
                                             torchvision.transforms.Normalize((0.1307,), (0.3081,)) # image, label
                                             ]))
-train_loader = torch.utils.data.DataLoader(train_data, batch_size=4, shuffle=True)
 
-# Create gpu device
-device = torch.device('cuda')
-print(device)
+train_loader = torch.utils.data.DataLoader(train_data, batch_size=100, shuffle=True)
 
-# Transfer
-teacher_model.to(device)
-
-for epoch_count in range(5):
+student_model.train()
+for epoch_count in range(3000):
     print('epoch: {}'.format(epoch_count))
 
     ## Optimize parameters
@@ -54,15 +70,35 @@ for epoch_count in range(5):
         
         # Compute gradients (backward propagation)
         loss.backward()
-
+        
         # Update parameters (SGD)
         optimizer.step()
 
+        # Clip weight
+        max_norm = 15.0
+        named_parameters = dict(student_model.named_parameters())
+        for layer_name in ['layer1', 'layer2', 'layer3']:
+            with torch.no_grad():
+                weight = named_parameters['{}.weight'.format(layer_name)]
+                bias = named_parameters['{}.bias'.format(layer_name)].unsqueeze(1)
+                weight_bias = torch.cat((weight, bias),dim=1)
+                norm = torch.norm(weight_bias, dim=1, keepdim=True).add_(1e-6)
+                clip_coef = norm.reciprocal_().mul_(max_norm).clamp_(max=1.0)
+                weight.mul_(clip_coef)
+                bias.mul_(clip_coef)
+                
         total_loss += loss.item()
-        if step_count % 1000 == 0:
+        if step_count % 100 == 0:
             print('progress: {}\t/ {}\tloss: {}'.format(step_count, len(train_loader), loss.item()))
-    
+
+
+    list_lr_momentum_scheduler.step()
     print('loss: {}'.format(total_loss / len(train_loader)))
+
+    ## Save model
+    if epoch_count % 100 == 0:
+        torch.save(student_model.state_dict(), './data/student-{}.pth'.format(epoch_count))
+
 
 ## Save model
 torch.save(student_model.state_dict(), './data/student.pth')
