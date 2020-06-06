@@ -54,19 +54,22 @@ def evaluate(model_type='teacher', prefix='teacher'):
     return error_counts
 
 # Evaluate accuracy
-error_counts_teacher = evaluate('teacher', 'teacher')
-error_counts_student = evaluate('student', 'student')
-error_counts_student_distill = evaluate('student', 'student-distill')
+# error_counts_teacher = evaluate('teacher', 'teacher')
+# error_counts_student = evaluate('student', 'student')
+# error_counts_student_distill = evaluate('student', 'student-distill')
+# error_counts_teacher_distill = evaluate('teacher', 'teacher-distill')
 
 # Store as file
-np.save('./data/error_counts_teacher.npy', error_counts_teacher)
-np.save('./data/error_counts_student.npy', error_counts_student)
-np.save('./data/error_counts_student_distill.npy', error_counts_student_distill)
+# np.save('./data/error_counts_teacher.npy', error_counts_teacher)
+# np.save('./data/error_counts_student.npy', error_counts_student)
+# np.save('./data/error_counts_student_distill.npy', error_counts_student_distill)
+# np.save('./data/error_counts_teacher_distill.npy', error_counts_teacher_distill)
 
 # # Load from file
-# error_counts_teacher = np.load('./data/error_counts_teacher.npy')
-# error_counts_student = np.load('./data/error_counts_student.npy')
-# error_counts_student_distill = np.load('./data/error_counts_student_distill.npy')
+error_counts_teacher = np.load('./data/error_counts_teacher.npy')
+error_counts_student = np.load('./data/error_counts_student.npy')
+error_counts_student_distill = np.load('./data/error_counts_student_distill.npy')
+error_counts_teacher_distill = np.load('./data/error_counts_teacher_distill.npy')
 
 # Prepare to plot
 fig, ax = plt.subplots()
@@ -75,10 +78,12 @@ fig, ax = plt.subplots()
 ax.plot(range(0, 3001, 100), error_counts_teacher, label='teacher')
 ax.plot(range(0, 3001, 100), error_counts_student, label='student')
 ax.plot(range(0, 3001, 100), error_counts_student_distill, label='student with distillation')
+ax.plot(range(0, 3001, 100), error_counts_teacher_distill, label='teacher with distillation')
 ax.set_xlabel('number of epochs')
 ax.set_ylabel('number of errors')
 ax.set_title('Learning curve')
 ax.legend()
 
 # Show
-plt.show()
+#plt.show()
+plt.savefig('learning_curve.png')
